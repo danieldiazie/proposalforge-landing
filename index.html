@@ -411,6 +411,8 @@
   </footer>
 
   <script>
+    var BLOB_URL = 'https://jsonblob.com/api/jsonBlob/019d2198-5e2c-7278-96e8-2b1169cdbf47';
+
     function getSource() {
       var ref = document.referrer || '';
       if (ref.indexOf('reddit.com') !== -1) return 'reddit';
@@ -419,51 +421,49 @@
       return 'direct';
     }
 
-    function showSuccess(form) {
-      form.style.display = 'none';
-      var successId = form.id === 'signup-form' ? 'success-msg' : 'success-msg-bottom';
-      document.getElementById(successId).style.display = 'block';
-      var note = form.nextElementSibling;
-      if (note && note.classList.contains('form-note')) {
-        note.style.display = 'none';
-      }
-    }
+    function handleSubmit(form, successId) {
+      var email = form.querySelector('input[name="email"]').value.trim().toLowerCase();
+      var btn = form.querySelector('button');
+      btn.textContent = 'Signing up...';
+      btn.disabled = true;
 
-    function saveLocal(email, source) {
-      try {
-        var signups = JSON.parse(localStorage.getItem('pf_signups') || '[]');
-        if (!signups.some(function(s) { return s.email === email; })) {
-          signups.push({ email: email, source: source, ts: new Date().toISOString() });
-          localStorage.setItem('pf_signups', JSON.stringify(signups));
-        }
-      } catch(e) {}
-    }
-
-    document.querySelectorAll('form').forEach(function(form) {
-      form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        var email = form.querySelector('input[name="email"]').value;
-        var source = getSource();
-        var btn = form.querySelector('button');
-        btn.textContent = 'Signing up...';
-        btn.disabled = true;
-
-        fetch('https://mc.diazovate.com/api/proposalforge/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email, source: source })
-        }).then(function(res) { return res.json(); }).then(function(data) {
-          if (data.ok || data.message === 'Already signed up') {
-            showSuccess(form);
-          } else {
-            saveLocal(email, source);
-            showSuccess(form);
+      fetch(BLOB_URL)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var signups = data.signups || [];
+          if (signups.some(function(s) { return s.email === email; })) {
+            return { duplicate: true };
           }
-        }).catch(function() {
-          saveLocal(email, source);
-          showSuccess(form);
+          signups.push({ email: email, ts: new Date().toISOString(), source: getSource() });
+          return fetch(BLOB_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signups: signups })
+          }).then(function() { return { duplicate: false }; });
+        })
+        .then(function() {
+          form.style.display = 'none';
+          document.getElementById(successId).style.display = 'block';
+          var note = form.nextElementSibling;
+          if (note && note.classList.contains('form-note')) {
+            note.style.display = 'none';
+          }
+        })
+        .catch(function() {
+          btn.textContent = 'Get Early Access';
+          btn.disabled = false;
+          alert('Something went wrong. Please try again.');
         });
-      });
+    }
+
+    document.getElementById('signup-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      handleSubmit(this, 'success-msg');
+    });
+
+    document.getElementById('signup-form-bottom').addEventListener('submit', function(e) {
+      e.preventDefault();
+      handleSubmit(this, 'success-msg-bottom');
     });
   </script>
 

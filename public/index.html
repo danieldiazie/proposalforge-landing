@@ -254,16 +254,6 @@
     .bottom-cta .subtitle {
       margin-bottom: 32px;
     }
-    .price-hint {
-      font-size: 0.85rem;
-      color: #555;
-      margin-top: 12px;
-    }
-    .price-hint span {
-      color: #a78bfa;
-      font-weight: 600;
-    }
-
     footer {
       padding: 24px 0;
       border-top: 1px solid #1a1a1a;
@@ -389,7 +379,7 @@
         <input type="email" name="email" placeholder="you@example.com" required>
         <button type="submit">Get Early Access</button>
       </form>
-      <p class="price-hint">Launching at <span>~$14/mo</span> — early access members get a discount.</p>
+      <p class="form-note">Free to join. No spam. We'll email you when it's ready.</p>
 
       <div class="success-msg" id="success-msg-bottom">
         <h3>You're on the list!</h3>
@@ -405,37 +395,41 @@
   </footer>
 
   <script>
+    var BLOB_URL = 'https://jsonblob.com/api/jsonBlob/019d2198-5e2c-7278-96e8-2b1169cdbf47';
+
     function handleSubmit(form, successId) {
-      var email = form.querySelector('input[type="email"]').value;
+      var email = form.querySelector('input[type="email"]').value.trim().toLowerCase();
       var btn = form.querySelector('button');
       btn.disabled = true;
       btn.textContent = 'Joining...';
 
-      fetch('/api/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        if (data.ok) {
+      fetch(BLOB_URL)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          var signups = data.signups || [];
+          if (signups.some(function(s) { return s.email === email; })) {
+            return { duplicate: true };
+          }
+          signups.push({ email: email, ts: new Date().toISOString(), source: 'landing' });
+          return fetch(BLOB_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signups: signups })
+          }).then(function() { return { duplicate: false }; });
+        })
+        .then(function(result) {
           form.style.display = 'none';
           document.getElementById(successId).style.display = 'block';
           var note = form.nextElementSibling;
-          if (note && (note.classList.contains('form-note') || note.classList.contains('price-hint'))) {
+          if (note && note.classList.contains('form-note')) {
             note.style.display = 'none';
           }
-        } else {
+        })
+        .catch(function() {
           btn.disabled = false;
           btn.textContent = 'Get Early Access';
-          alert(data.error || 'Something went wrong. Please try again.');
-        }
-      })
-      .catch(function() {
-        btn.disabled = false;
-        btn.textContent = 'Get Early Access';
-        alert('Something went wrong. Please try again.');
-      });
+          alert('Something went wrong. Please try again.');
+        });
     }
 
     document.getElementById('signup-form').addEventListener('submit', function(e) {

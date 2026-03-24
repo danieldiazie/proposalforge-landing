@@ -1,0 +1,18 @@
+services:
+  proposalforge:
+    build: .
+    container_name: proposalforge-landing
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    environment:
+      - PORT=3100
+      - ADMIN_KEY=${ADMIN_KEY:-changeme}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - caddy_proxy
+
+networks:
+  caddy_proxy:
+    external: true
